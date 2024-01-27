@@ -1,11 +1,10 @@
 const jwt = require("jsonwebtoken");
 
 function isLoggedIn(req, res, next) {
-  const token = req.headers.authorization.split(" ")[1];
+  const token = req.cookies?.token;
   if (!token) {
     return res.status(401).json({
-      message: "Authentication failed: Missing token.",
-      status: "error",
+      message: "You are not LoggedIn",
     });
   }
 
@@ -15,8 +14,7 @@ function isLoggedIn(req, res, next) {
   } catch (err) {
     console.log(err);
     return res.status(401).json({
-      message: "Authentication failed: Invalid token.",
-      status: "error",
+      message: "Something went wrong",
     });
   }
 }

@@ -5,11 +5,15 @@ const { pool } = require("../db/db.config");
 exports.createUser = async (req, res) => {
   let { name, email, password } = req.body;
   if (!name || !email || !password) {
-    return res.status(400).json("Please Enter all details");
+    return res.status(400).json({ message: "Please Enter all details" });
   } else if (password.length < 6) {
-    return res.status(400).json("Password Should be atleast 6 characters");
+    return res
+      .status(400)
+      .json({ message: "Password Should be atleast 6 characters" });
+  } else if (typeof password !== "string") {
+    return res.status(400).json({ message: "Password must be a string" });
   } else if (!email.includes("@")) {
-    return res.status(400).json("Enter Valid Email Id");
+    return res.status(400).json({ message: "Enter Valid Email Id" });
   } else {
     let hashedPassword = await bcrypt.hash(password, 10);
     pool.query(
@@ -18,10 +22,12 @@ exports.createUser = async (req, res) => {
       [email],
       (error, result) => {
         if (error) {
-          return res.status(400).json(`Something went wrong ${error}`);
+          return res
+            .status(400)
+            .json({ message: `Something went wrong ${error}` });
         }
         if (result.rows.length > 0) {
-          return res.status(400).json("User already registered");
+          return res.status(400).json({ message: "User already registered" });
         } else {
           pool.query(
             `INSERT INTO userData(name,email,password)
@@ -30,10 +36,14 @@ exports.createUser = async (req, res) => {
             [name, email, hashedPassword],
             (error, result) => {
               if (error) {
-                return res.status(400).json(`Something went wrong ${error}`);
+                return res
+                  .status(400)
+                  .json({ message: `Something went wrong ${error}` });
               }
               if (result.rows.length > 0) {
-                return res.status(200).json("Registered Sucessfully");
+                return res
+                  .status(200)
+                  .json({ message: "Registered Sucessfully" });
               }
             }
           );
@@ -46,11 +56,11 @@ exports.createUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   let { email, password } = req.body;
   if (!email || !password) {
-    res.status(400).json("Please Enter all details");
+    return res.status(400).json({ message: "Please Enter all details" });
   } else if (!email.includes("@")) {
-    res.status(400).json("Enter Valid Email Id");
+    return res.status(400).json({ message: "Enter Valid Email Id" });
   } else if (password.length < 6) {
-    res.status(400).json("Enter Valid Password");
+    return res.status(400).json({ message: "Enter Valid Password" });
   } else {
     pool.query(
       `SELECT * FROM userData
@@ -58,27 +68,31 @@ exports.loginUser = async (req, res) => {
       [email],
       (error, result) => {
         if (error) {
-          res.status(400).json(`Something went wrong ${error}`);
+          return res
+            .status(400)
+            .json({ message: `Something went wrong ${error}` });
         } else if (result.rows.length > 0) {
           const user = result.rows[0];
           bcrypt.compare(password, user.password, (error, isMatch) => {
             if (error) {
-              res.status(400).json(`Something went wrong: ${error}`);
+              return res
+                .status(400)
+                .json({ message: `Something went wrong: ${error}` });
             } else if (isMatch) {
               const token = jwt.sign(
                 { userId: user.userid, email: user.email },
                 process.env.JWT_SECRET
               );
-              res.status(200).json({
-                message: "User authenticated successfully",
-                token: token,
+              res.cookie("token", token, { httpOnly: true });
+              return res.status(200).json({
+                message: "Login successfully",
               });
             } else {
-              res.status(400).json("Invalid password");
+              return res.status(400).json({ message: "Invalid password" });
             }
           });
         } else {
-          res.status(404).json("User not found");
+          return res.status(404).json({ message: "Invalid Email Id" });
         }
       }
     );
@@ -86,21 +100,18 @@ exports.loginUser = async (req, res) => {
 };
 
 exports.logoutUser = async (req, res) => {
-  const token = req.headers.authorization;
+  const token = req.cookies?.token;
   if (!token) {
     return res.status(401).json({
-      message: "Authentication failed: Missing token.",
-      status: "Error",
+      message: "You are not LoggedIn",
     });
   }
   try {
-    jwt.verify(token, JWT_SECRET);
+    jwt.verify(token, process.env.JWT_SECRET);
     res.clearCookie("token");
-    return res
-      .status(200)
-      .json({ message: "Logged out successfully.", status: "Success" });
+    return res.status(200).json({ message: "Logged out successfully." });
   } catch (error) {
-    res.status(500).json("Internal Server Error");
+    return res.status(500).json(`Internal Server Error ${error}`);
   }
 };
 
